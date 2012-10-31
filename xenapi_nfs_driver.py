@@ -32,14 +32,14 @@ class XenAPINFSDriver(object):
     def get_vdi_by_uuid(self, vdi_uuid):
         return self.session.call_xenapi('VDI.get_by_uuid', vdi_uuid)
 
-    def create_sr(self, host_ref, device_config, physical_size, name_label,
-                  name_description, sr_type, content_type=None, shared=False,
-                  sm_config=None):
+    def create_sr(self, host_ref, device_config, name_label, name_description,
+                  sr_type, physical_size=None, content_type=None,
+                  shared=False, sm_config=None):
         return self.session.call_xenapi(
             'SR.create',
             host_ref,
             device_config,
-            physical_size,
+            physical_size or '0',
             name_label,
             name_description,
             sr_type,
@@ -48,8 +48,8 @@ class XenAPINFSDriver(object):
             sm_config or dict()
         )
 
-    def create_vdi(self, sr_ref, size, vdi_type, sharable=False,
-                   read_only=False, other_config=None):
+    def create_vdi(self, sr_ref, size, vdi_type,
+                   sharable=False, read_only=False, other_config=None):
         return self.session.call_xenapi('VDI.create',
             dict(
                 SR=sr_ref,
@@ -119,7 +119,6 @@ class XenAPINFSDriver(object):
             server=server,
             serverpath=serverpath
         )
-        physical_size = '0'
         name_label = 'name-label'
         name_description = 'name-description'
         sr_type = 'nfs'
@@ -127,7 +126,6 @@ class XenAPINFSDriver(object):
         sr_ref = self.create_sr(
             host_ref,
             device_config,
-            physical_size,
             name_label,
             name_description,
             sr_type,
