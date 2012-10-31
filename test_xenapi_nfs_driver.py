@@ -154,3 +154,24 @@ class TestVolumeCreation(unittest.TestCase):
         self.assertEquals(
             original_number_of_vdis + 1,
             len(driver.get_vdis()))
+
+    def test_disconnect_a_volume(self):
+        driver = self.driver
+
+        original_number_of_srs = len(driver.get_srs())
+        original_number_of_vdis = len(driver.get_vdis())
+
+        connection_data = driver.create_volume(
+            self.host_uuid, params.nfs_server, params.nfs_serverpath, 1)
+
+        vdi_ref = driver.connect_volume(self.host_uuid, connection_data)
+
+        driver.disconnect_volume(vdi_ref)
+
+        self.assertEquals(
+            original_number_of_srs,
+            len(driver.get_srs()))
+
+        self.assertEquals(
+            original_number_of_vdis,
+            len(driver.get_vdis()))

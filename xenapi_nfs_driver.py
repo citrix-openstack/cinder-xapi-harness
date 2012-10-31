@@ -189,3 +189,8 @@ class XenAPINFSDriver(object):
         )
         self.scan_sr(sr_ref)
         return self.get_vdi_by_uuid(connection_data['vdi_uuid'])
+
+    def disconnect_volume(self, vdi_ref):
+        vdi_rec = self.get_vdi_record(vdi_ref)
+        sr_ref = vdi_rec['SR']
+        self.unplug_pbds_and_forget_sr(sr_ref)
