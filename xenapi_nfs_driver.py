@@ -74,16 +74,18 @@ class XenAPINFSDriver(object):
             sm_config or dict()
         )
 
-    def create_pbd(self, device_config):
+    def create_pbd(self, host_ref, sr_ref, device_config):
         return self.session.call_xenapi(
             'PBD.create',
-            device_config
+            dict(
+                host=host_ref,
+                SR=sr_ref,
+                device_config=device_config
+            )
         )
 
     def plug_pbd(self, pbd_ref):
-        self.session.call_xenapi(
-            'PBD.plug',
-            pbd_ref)
+        self.session.call_xenapi('PBD.plug', pbd_ref)
 
     # Record based operations
     def get_sr_uuid(self, sr_ref):
@@ -135,6 +137,11 @@ class XenAPINFSDriver(object):
         self.unplug_pbds_and_forget_sr(sr_ref)
 
     def plug_nfs_sr(self, server, serverpath, sr_uuid):
+        host_ref = self.session.get_xenapi_host()
+        device_config = dict(
+            server=server,
+            serverpath=serverpath
+        )
         name_label = 'name-label'
         name_description = 'name-description'
         sr_type = 'nfs'
@@ -146,16 +153,10 @@ class XenAPINFSDriver(object):
             sr_type,
         )
 
-        device_config = dict(
-            server=server,
-            serverpath=serverpath
-        )
-
         pbd_ref = self.create_pbd(
-            dict(
-                host=self.session.get_xenapi_host(),
-                SR=sr_ref,
-                device_config=device_config)
+            host_ref,
+            sr_ref,
+            device_config
         )
 
         self.plug_pbd(pbd_ref)
@@ -164,6 +165,7 @@ class XenAPINFSDriver(object):
 
     # High level operations
     def create_volume(self, server, serverpath, size):
+        'Returns connection_data, which could be used to connect to the vol'
         with self.new_sr_on_nfs(server, serverpath) as sr_ref:
             sr_uuid = self.get_sr_uuid(sr_ref)
             vdi_ref = self.create_new_vdi(sr_ref, size)

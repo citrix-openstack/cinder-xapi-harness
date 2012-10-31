@@ -93,6 +93,20 @@ class TestVolumeCreation(unittest.TestCase):
 
         self.assertEquals(vdi_list, driver.get_vdis())
 
+    def test_re_attach_an_sr(self):
+        driver = self.driver
+
+
+        with driver.new_sr_on_nfs(params.nfs_server,
+                                  params.nfs_serverpath) as sr_ref:
+            sr_uuid = driver.get_sr_uuid(sr_ref)
+            sr_count = len(driver.get_srs())
+            pbd_count = len(driver.get_pbds())
+
+        driver.plug_nfs_sr(params.nfs_server, params.nfs_serverpath, sr_uuid)
+        self.assertEquals(sr_count, len(driver.get_srs()))
+        self.assertEquals(pbd_count, len(driver.get_pbds()))
+
     def test_create_a_new_nfs_backed_volume_returns_sr_uuid(self):
         driver = self.driver
 
@@ -117,20 +131,6 @@ class TestVolumeCreation(unittest.TestCase):
                     params.exported_catalog,
                     connection_data['sr_uuid']))
         )
-
-    def test_re_attach_an_sr(self):
-        driver = self.driver
-
-
-        with driver.new_sr_on_nfs(params.nfs_server,
-                                  params.nfs_serverpath) as sr_ref:
-            sr_uuid = driver.get_sr_uuid(sr_ref)
-            sr_count = len(driver.get_srs())
-            pbd_count = len(driver.get_pbds())
-
-        driver.plug_nfs_sr(params.nfs_server, params.nfs_serverpath, sr_uuid)
-        self.assertEquals(sr_count, len(driver.get_srs()))
-        self.assertEquals(pbd_count, len(driver.get_pbds()))
 
     def test_re_attach_an_nfs_backed_volume_increases_number_of_vdis_srs(self):
         driver = self.driver
