@@ -102,6 +102,14 @@ class XenAPINFSDriver(object):
             self.unplug_pbd(pbd_ref)
         self.forget_sr(sr_ref)
 
+    def create_new_vdi(self, sr_ref, size):
+        return self.create_vdi(
+                sr_ref,
+                size,
+                'User',
+        )
+
+    # NFS specific
     @contextlib.contextmanager
     def new_sr_on_nfs(self, server, serverpath):
         host_ref = self.session.get_xenapi_host()
@@ -125,25 +133,6 @@ class XenAPINFSDriver(object):
         yield sr_ref
 
         self.unplug_pbds_and_forget_sr(sr_ref)
-
-    def create_new_vdi(self, sr_ref, size):
-        return self.create_vdi(
-                sr_ref,
-                size,
-                'User',
-        )
-
-    def create_volume(self, server, serverpath, size):
-        with self.new_sr_on_nfs(server, serverpath) as sr_ref:
-            sr_uuid = self.get_sr_uuid(sr_ref)
-            vdi_ref = self.create_new_vdi(sr_ref, size)
-            vdi_uuid = self.get_vdi_uuid(vdi_ref)
-
-        return dict(
-            sr_uuid=sr_uuid,
-            vdi_uuid=vdi_uuid,
-            server=server,
-            serverpath=serverpath)
 
     def plug_nfs_sr(self, server, serverpath, sr_uuid):
         name_label = 'name-label'
@@ -172,6 +161,19 @@ class XenAPINFSDriver(object):
         self.plug_pbd(pbd_ref)
 
         return sr_ref
+
+    # High level operations
+    def create_volume(self, server, serverpath, size):
+        with self.new_sr_on_nfs(server, serverpath) as sr_ref:
+            sr_uuid = self.get_sr_uuid(sr_ref)
+            vdi_ref = self.create_new_vdi(sr_ref, size)
+            vdi_uuid = self.get_vdi_uuid(vdi_ref)
+
+        return dict(
+            sr_uuid=sr_uuid,
+            vdi_uuid=vdi_uuid,
+            server=server,
+            serverpath=serverpath)
 
     def connect_volume(self, connection_data):
         sr_ref = self.plug_nfs_sr(
