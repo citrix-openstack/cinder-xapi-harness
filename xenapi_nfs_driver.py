@@ -48,6 +48,43 @@ class XenAPINFSDriver(object):
             sm_config or dict()
         )
 
+    def create_vdi(self, sr_ref, size, vdi_type, sharable=False,
+                   read_only=False, other_config=None):
+        return self.session.call_xenapi('VDI.create',
+            dict(
+                SR=sr_ref,
+                virtual_size=str(size),
+                type=vdi_type,
+                sharable=sharable,
+                read_only=read_only,
+                other_config=other_config or dict()
+            )
+        )
+
+    def introduce_sr(self, sr_uuid, name_label, name_description, sr_type,
+                     content_type=None, shared=False, sm_config=None):
+        return self.session.call_xenapi(
+            'SR.introduce',
+            sr_uuid,
+            name_label,
+            name_description,
+            sr_type,
+            content_type or '',
+            shared,
+            sm_config or dict()
+        )
+
+    def create_pbd(self, device_config):
+        return self.session.call_xenapi(
+            'PBD.create',
+            device_config
+        )
+
+    def plug_pbd(self, pbd_ref):
+        self.session.call_xenapi(
+            'PBD.plug',
+            pbd_ref)
+
     # Record based operations
     def get_sr_uuid(self, sr_ref):
         return self.get_sr_record(sr_ref)['uuid']
@@ -90,15 +127,10 @@ class XenAPINFSDriver(object):
         self.unplug_pbds_and_forget_sr(sr_ref)
 
     def create_new_vdi(self, sr_ref, size):
-        return self.session.call_xenapi('VDI.create',
-            dict(
-                SR=sr_ref,
-                virtual_size=str(size),
-                type='User',
-                sharable=False,
-                read_only=False,
-                other_config=dict()
-            )
+        return self.create_vdi(
+                sr_ref,
+                size,
+                'User',
         )
 
     def create_volume(self, server, serverpath, size):
@@ -117,19 +149,12 @@ class XenAPINFSDriver(object):
         name_label = 'name-label'
         name_description = 'name-description'
         sr_type = 'nfs'
-        content_type = ''
-        shared = False
-        sm_config = dict()
 
-        sr_ref = self.session.call_xenapi(
-            'SR.introduce',
+        sr_ref = self.introduce_sr(
             sr_uuid,
             name_label,
             name_description,
             sr_type,
-            content_type,
-            shared,
-            sm_config
         )
 
         device_config = dict(
@@ -137,17 +162,14 @@ class XenAPINFSDriver(object):
             serverpath=serverpath
         )
 
-        pbd_ref = self.session.call_xenapi(
-            'PBD.create',
+        pbd_ref = self.create_pbd(
             dict(
                 host=self.session.get_xenapi_host(),
                 SR=sr_ref,
                 device_config=device_config)
         )
 
-        self.session.call_xenapi(
-            'PBD.plug',
-            pbd_ref)
+        self.plug_pbd(pbd_ref)
 
         return sr_ref
 
