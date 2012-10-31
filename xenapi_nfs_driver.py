@@ -32,6 +32,22 @@ class XenAPINFSDriver(object):
     def get_vdi_by_uuid(self, vdi_uuid):
         return self.session.call_xenapi('VDI.get_by_uuid', vdi_uuid)
 
+    def create_sr(self, host_ref, device_config, physical_size, name_label,
+                  name_description, sr_type, content_type=None, shared=False,
+                  sm_config=None):
+        return self.session.call_xenapi(
+            'SR.create',
+            host_ref,
+            device_config,
+            physical_size,
+            name_label,
+            name_description,
+            sr_type,
+            content_type or '',
+            shared,
+            sm_config or dict()
+        )
+
     # Record based operations
     def get_sr_uuid(self, sr_ref):
         return self.get_sr_record(sr_ref)['uuid']
@@ -60,21 +76,14 @@ class XenAPINFSDriver(object):
         name_label = 'name-label'
         name_description = 'name-description'
         sr_type = 'nfs'
-        content_type = ''
-        shared = False
-        sm_config = dict()
 
-        sr_ref = self.session.call_xenapi(
-            'SR.create',
+        sr_ref = self.create_sr(
             host_ref,
             device_config,
             physical_size,
             name_label,
             name_description,
             sr_type,
-            content_type,
-            shared,
-            sm_config
         )
         yield sr_ref
 
