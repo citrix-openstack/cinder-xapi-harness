@@ -45,6 +45,7 @@ class TestVolumeCreation(unittest.TestCase):
     def setUp(self):
         self.driver = xenapi_nfs_driver.XenAPINFSDriver(Session())
         self.disconnect_all_nfs_srs()
+        self.host_ref = self.driver.session.get_xenapi_host()
 
     def disconnect_all_nfs_srs(self):
         for sr_ref in self.driver.get_srs():
@@ -55,7 +56,8 @@ class TestVolumeCreation(unittest.TestCase):
         driver = self.driver
         number_of_srs_before = len(driver.get_srs())
 
-        with driver.new_sr_on_nfs(params.nfs_server, params.nfs_serverpath):
+        with driver.new_sr_on_nfs(self.host_ref, params.nfs_server,
+                                  params.nfs_serverpath):
             self.assertEquals(
                 number_of_srs_before + 1,
                 len(driver.get_srs()))
@@ -72,7 +74,7 @@ class TestVolumeCreation(unittest.TestCase):
 
         filenames_before = self.filenames_on_export()
 
-        with driver.new_sr_on_nfs(params.nfs_server,
+        with driver.new_sr_on_nfs(self.host_ref, params.nfs_server,
                                   params.nfs_serverpath) as sr_ref:
             uuid = driver.get_sr_uuid(sr_ref)
 
@@ -85,7 +87,7 @@ class TestVolumeCreation(unittest.TestCase):
 
         vdi_list = driver.get_vdis()
 
-        with driver.new_sr_on_nfs(params.nfs_server,
+        with driver.new_sr_on_nfs(self.host_ref, params.nfs_server,
                                   params.nfs_serverpath) as sr_ref:
             vdi_ref = driver.create_new_vdi(sr_ref, 1)
             self.assertEquals(
@@ -97,13 +99,15 @@ class TestVolumeCreation(unittest.TestCase):
         driver = self.driver
 
 
-        with driver.new_sr_on_nfs(params.nfs_server,
+        with driver.new_sr_on_nfs(self.host_ref, params.nfs_server,
                                   params.nfs_serverpath) as sr_ref:
             sr_uuid = driver.get_sr_uuid(sr_ref)
             sr_count = len(driver.get_srs())
             pbd_count = len(driver.get_pbds())
 
-        driver.plug_nfs_sr(params.nfs_server, params.nfs_serverpath, sr_uuid)
+        driver.plug_nfs_sr(
+            self.host_ref, params.nfs_server, params.nfs_serverpath, sr_uuid)
+
         self.assertEquals(sr_count, len(driver.get_srs()))
         self.assertEquals(pbd_count, len(driver.get_pbds()))
 
@@ -111,7 +115,7 @@ class TestVolumeCreation(unittest.TestCase):
         driver = self.driver
 
         connection_data = driver.create_volume(
-            params.nfs_server, params.nfs_serverpath, 1)
+            self.host_ref, params.nfs_server, params.nfs_serverpath, 1)
 
         self.assertIn(
             connection_data['sr_uuid'],
@@ -122,7 +126,7 @@ class TestVolumeCreation(unittest.TestCase):
         driver = self.driver
 
         connection_data = driver.create_volume(
-            params.nfs_server, params.nfs_serverpath, 1)
+            self.host_ref, params.nfs_server, params.nfs_serverpath, 1)
 
         self.assertIn(
             connection_data['vdi_uuid'] + ".vhd",
@@ -139,9 +143,9 @@ class TestVolumeCreation(unittest.TestCase):
         original_number_of_vdis = len(driver.get_vdis())
 
         connection_data = driver.create_volume(
-            params.nfs_server, params.nfs_serverpath, 1)
+            self.host_ref, params.nfs_server, params.nfs_serverpath, 1)
 
-        driver.connect_volume(connection_data)
+        driver.connect_volume(self.host_ref, connection_data)
 
         self.assertEquals(
             original_number_of_srs + 1,
