@@ -32,6 +32,9 @@ class XenAPINFSDriver(object):
     def get_vdi_by_uuid(self, vdi_uuid):
         return self.session.call_xenapi('VDI.get_by_uuid', vdi_uuid)
 
+    def get_host_by_uuid(self, host_uuid):
+        return self.session.call_xenapi('host.get_by_uuid', host_uuid)
+
     def create_sr(self, host_ref, device_config, name_label, name_description,
                   sr_type, physical_size=None, content_type=None,
                   shared=False, sm_config=None):
@@ -114,6 +117,7 @@ class XenAPINFSDriver(object):
     # NFS specific
     @contextlib.contextmanager
     def new_sr_on_nfs(self, host_ref, server, serverpath):
+
         device_config = dict(
             server=server,
             serverpath=serverpath
@@ -134,6 +138,7 @@ class XenAPINFSDriver(object):
         self.unplug_pbds_and_forget_sr(sr_ref)
 
     def plug_nfs_sr(self, host_ref, server, serverpath, sr_uuid):
+
         device_config = dict(
             server=server,
             serverpath=serverpath
@@ -160,8 +165,9 @@ class XenAPINFSDriver(object):
         return sr_ref
 
     # High level operations
-    def create_volume(self, host_ref, server, serverpath, size):
+    def create_volume(self, host_uuid, server, serverpath, size):
         'Returns connection_data, which could be used to connect to the vol'
+        host_ref = self.get_host_by_uuid(host_uuid)
         with self.new_sr_on_nfs(host_ref, server, serverpath) as sr_ref:
             sr_uuid = self.get_sr_uuid(sr_ref)
             vdi_ref = self.create_new_vdi(sr_ref, size)
@@ -173,7 +179,8 @@ class XenAPINFSDriver(object):
             server=server,
             serverpath=serverpath)
 
-    def connect_volume(self, host_ref, connection_data):
+    def connect_volume(self, host_uuid, connection_data):
+        host_ref = self.get_host_by_uuid(host_uuid)
         sr_ref = self.plug_nfs_sr(
             host_ref,
             connection_data['server'],
