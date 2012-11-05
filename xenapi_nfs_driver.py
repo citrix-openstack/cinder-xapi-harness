@@ -223,6 +223,7 @@ class XenAPINFSDriver(object):
     def __init__(self, session_factory):
         self._session_factory = session_factory
 
+    # TODO: eliminate host_uuid
     def create_volume(self, host_uuid, server, serverpath, size):
         'Returns connection_data, which could be used to connect to the vol'
         with self._session_factory.get_session() as session:
@@ -238,6 +239,7 @@ class XenAPINFSDriver(object):
                 server=server,
                 serverpath=serverpath)
 
+    # TODO: eliminate host_uuid
     def connect_volume(self, host_uuid, connection_data):
         with self._session_factory.get_session() as session:
             host_ref = session.get_host_by_uuid(host_uuid)
