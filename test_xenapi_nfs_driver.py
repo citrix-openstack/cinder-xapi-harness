@@ -1,5 +1,5 @@
+from cinder.volume.xenapi import lib as xenapi_nfs_driver
 import unittest
-import xenapi_nfs_driver
 import os
 import params
 
@@ -13,12 +13,12 @@ class TestSessionFactory(unittest.TestCase):
         )
         session = sessionFactory.get_session()
 
-        session.get_srs()
+        session.SR.get_all()
 
         session.close()
 
         with self.assertRaises(xenapi_nfs_driver.XenAPIException):
-            session.get_srs()
+            session.SR.get_all()
 
 
 class XenAPISessionBased(unittest.TestCase):
@@ -31,14 +31,14 @@ class XenAPISessionBased(unittest.TestCase):
         self.session = self.sessionFactory.get_session()
         self.disconnect_all_nfs_srs()
         self.host_ref = self.session.get_this_host()
-        self.host_uuid = self.session.get_host_uuid(self.host_ref)
+        self.host_uuid = self.session.host.get_uuid(self.host_ref)
         self.assertFalse(self.session.get_pool())
 
     def tearDown(self):
         self.session.close()
 
     def disconnect_all_nfs_srs(self):
-        for sr_ref in self.session.get_srs():
+        for sr_ref in self.session.SR.get_all():
             if self.session.is_nfs_sr(sr_ref):
                 self.session.unplug_pbds_and_forget_sr(sr_ref)
 
@@ -47,20 +47,33 @@ class XenAPISessionBased(unittest.TestCase):
 class XenAPISessionTest(XenAPISessionBased):
     def test_new_sr_on_nfs_connects_an_sr_and_disconnects(self):
         session = self.session
-        number_of_srs_before = len(session.get_srs())
+        number_of_srs_before = len(session.SR.get_all())
 
         with session.new_sr_on_nfs(self.host_ref, params.nfs_server,
                                   params.nfs_serverpath):
             self.assertEquals(
                 number_of_srs_before + 1,
-                len(session.get_srs()))
+                len(session.SR.get_all()))
 
         self.assertEquals(
             number_of_srs_before,
-            len(session.get_srs()))
+            len(session.SR.get_all()))
 
     def filenames_on_export(self):
         return set(os.listdir(params.exported_catalog))
+
+    def test_sr_name_and_desc(self):
+        session = self.session
+
+        with session.new_sr_on_nfs(self.host_ref, params.nfs_server,
+                                  params.nfs_serverpath,
+                                  'name', 'desc') as sr_ref:
+            name = session.SR.get_name_label(sr_ref)
+            desc = session.SR.get_name_description(sr_ref)
+
+        self.assertEquals('name', name)
+        self.assertEquals('desc', desc)
+
 
     def test_sr_directory_is_not_removed(self):
         session = self.session
@@ -69,7 +82,7 @@ class XenAPISessionTest(XenAPISessionBased):
 
         with session.new_sr_on_nfs(self.host_ref, params.nfs_server,
                                   params.nfs_serverpath) as sr_ref:
-            uuid = session.get_sr_uuid(sr_ref)
+            uuid = session.SR.get_uuid(sr_ref)
 
         filenames_after = self.filenames_on_export()
 
@@ -78,98 +91,103 @@ class XenAPISessionTest(XenAPISessionBased):
     def test_vdi_create_does_not_introduce_vdi(self):
         session = self.session
 
-        vdi_list = session.get_vdis()
+        vdi_list = session.VDI.get_all()
 
         with session.new_sr_on_nfs(self.host_ref, params.nfs_server,
                                   params.nfs_serverpath) as sr_ref:
             vdi_ref = session.create_new_vdi(sr_ref, 1)
             self.assertEquals(
-                set(vdi_list + [vdi_ref]), set(session.get_vdis()))
+                set(vdi_list + [vdi_ref]), set(session.VDI.get_all()))
 
-        self.assertEquals(vdi_list, session.get_vdis())
+        self.assertEquals(vdi_list, session.VDI.get_all())
 
     def test_re_attach_an_sr(self):
         session = self.session
 
         with session.new_sr_on_nfs(self.host_ref, params.nfs_server,
                                   params.nfs_serverpath) as sr_ref:
-            sr_uuid = session.get_sr_uuid(sr_ref)
-            sr_count = len(session.get_srs())
-            pbd_count = len(session.get_pbds())
+            sr_uuid = session.SR.get_uuid(sr_ref)
+            sr_count = len(session.SR.get_all())
+            pbd_count = len(session.PBD.get_all())
 
-        session.plug_nfs_sr(
-            self.host_ref, params.nfs_server, params.nfs_serverpath, sr_uuid)
+        sr_ref = session.plug_nfs_sr(
+            self.host_ref, params.nfs_server, params.nfs_serverpath, sr_uuid,
+            'name', 'desc')
 
-        self.assertEquals(sr_count, len(session.get_srs()))
-        self.assertEquals(pbd_count, len(session.get_pbds()))
+        self.assertEquals(sr_count, len(session.SR.get_all()))
+        self.assertEquals(pbd_count, len(session.PBD.get_all()))
+        self.assertEquals('name', session.SR.get_name_label(sr_ref))
+        self.assertEquals('desc', session.SR.get_name_description(sr_ref))
 
 
-class XenAPINFSDriverTest(XenAPISessionBased):
+class NFSBasedVolumeOperationsTest(XenAPISessionBased):
     def setUp(self):
-        super(XenAPINFSDriverTest, self).setUp()
-        self.driver = xenapi_nfs_driver.XenAPINFSDriver(self.sessionFactory)
+        super(NFSBasedVolumeOperationsTest, self).setUp()
+        self.driver = xenapi_nfs_driver.NFSBasedVolumeOperations(self.sessionFactory)
 
     def test_create_a_new_nfs_backed_volume_returns_sr_uuid(self):
         driver = self.driver
 
-        connection_data = driver.create_volume(
-            self.host_uuid, params.nfs_server, params.nfs_serverpath, 1)
+        volume_details = driver.create_volume(
+            params.nfs_server, params.nfs_serverpath, 1)
 
         self.assertIn(
-            connection_data['sr_uuid'],
+            volume_details['sr_uuid'],
             os.listdir(params.exported_catalog)
         )
 
     def test_create_a_new_nfs_backed_volume_returns_vdi_uuid(self):
         driver = self.driver
 
-        connection_data = driver.create_volume(
-            self.host_uuid, params.nfs_server, params.nfs_serverpath, 1)
+        volume_details = driver.create_volume(
+            params.nfs_server, params.nfs_serverpath, 1)
 
         self.assertIn(
-            connection_data['vdi_uuid'] + ".vhd",
+            volume_details['vdi_uuid'] + ".vhd",
             os.listdir(
                 os.path.join(
                     params.exported_catalog,
-                    connection_data['sr_uuid']))
+                    volume_details['sr_uuid']))
         )
 
     def test_re_attach_an_nfs_backed_volume_increases_number_of_vdis_srs(self):
         driver = self.driver
 
-        original_number_of_srs = len(self.session.get_srs())
-        original_number_of_vdis = len(self.session.get_vdis())
+        original_number_of_srs = len(self.session.SR.get_all())
+        original_number_of_vdis = len(self.session.VDI.get_all())
 
-        connection_data = driver.create_volume(
-            self.host_uuid, params.nfs_server, params.nfs_serverpath, 1)
+        volume_details = driver.create_volume(
+            params.nfs_server, params.nfs_serverpath, 1)
 
-        driver.connect_volume(self.host_uuid, connection_data)
+        driver.connect_volume(self.host_uuid, params.nfs_server,
+                              params.nfs_serverpath, **volume_details)
 
         self.assertEquals(
             original_number_of_srs + 1,
-            len(self.session.get_srs()))
+            len(self.session.SR.get_all()))
 
         self.assertEquals(
             original_number_of_vdis + 1,
-            len(self.session.get_vdis()))
+            len(self.session.VDI.get_all()))
 
     def test_disconnect_a_volume(self):
         driver = self.driver
 
-        original_number_of_srs = len(self.session.get_srs())
-        original_number_of_vdis = len(self.session.get_vdis())
+        original_number_of_srs = len(self.session.SR.get_all())
+        original_number_of_vdis = len(self.session.VDI.get_all())
 
-        connection_data = driver.create_volume(
-            self.host_uuid, params.nfs_server, params.nfs_serverpath, 1)
+        volume_details = driver.create_volume(
+            params.nfs_server, params.nfs_serverpath, 1)
 
-        vdi_ref = driver.connect_volume(self.host_uuid, connection_data)
+        vdi_ref = driver.connect_volume(self.host_uuid, params.nfs_server,
+                                        params.nfs_serverpath, **volume_details)
 
         driver.disconnect_volume(vdi_ref)
 
         self.assertEquals(
             original_number_of_srs,
-            len(self.session.get_srs()))
+            len(self.session.SR.get_all()))
 
         self.assertEquals(
             original_number_of_vdis,
-            len(self.session.get_vdis()))
+            len(self.session.VDI.get_all()))
