@@ -42,6 +42,8 @@ class XenAPISessionBased(unittest.TestCase):
             if self.session.is_nfs_sr(sr_ref):
                 self.session.unplug_pbds_and_forget_sr(sr_ref)
 
+    def filenames_on_export(self):
+        return set(os.listdir(params.exported_catalog))
 
 
 class XenAPISessionTest(XenAPISessionBased):
@@ -58,9 +60,6 @@ class XenAPISessionTest(XenAPISessionBased):
         self.assertEquals(
             number_of_srs_before,
             len(session.SR.get_all()))
-
-    def filenames_on_export(self):
-        return set(os.listdir(params.exported_catalog))
 
     def test_sr_name_and_desc(self):
         session = self.session
@@ -159,7 +158,7 @@ class NFSBasedVolumeOperationsTest(XenAPISessionBased):
         volume_details = driver.create_volume(
             params.nfs_server, params.nfs_serverpath, 1)
 
-        driver.connect_volume(self.host_uuid, params.nfs_server,
+        driver.connect_volume(params.nfs_server,
                               params.nfs_serverpath, **volume_details)
 
         self.assertEquals(
@@ -179,10 +178,10 @@ class NFSBasedVolumeOperationsTest(XenAPISessionBased):
         volume_details = driver.create_volume(
             params.nfs_server, params.nfs_serverpath, 1)
 
-        vdi_ref = driver.connect_volume(self.host_uuid, params.nfs_server,
+        vdi_uuid = driver.connect_volume(params.nfs_server,
                                         params.nfs_serverpath, **volume_details)
 
-        driver.disconnect_volume(vdi_ref)
+        driver.disconnect_volume(vdi_uuid)
 
         self.assertEquals(
             original_number_of_srs,
@@ -191,3 +190,23 @@ class NFSBasedVolumeOperationsTest(XenAPISessionBased):
         self.assertEquals(
             original_number_of_vdis,
             len(self.session.VDI.get_all()))
+
+
+class DeleteVolumeTest(XenAPISessionBased):
+    def setUp(self):
+        super(DeleteVolumeTest, self).setUp()
+        self.driver = xenapi_nfs_driver.NFSBasedVolumeOperations(self.sessionFactory)
+
+    def count_filenames_on_export(self):
+        return len(self.filenames_on_export())
+
+    def test_delete_volume_removes_sr_directory(self):
+        volume_details = self.driver.create_volume(
+            params.nfs_server, params.nfs_serverpath, 1)
+
+        filecount = self.count_filenames_on_export()
+
+        self.driver.delete_volume(
+            params.nfs_server, params.nfs_serverpath, **volume_details)
+
+        self.assertEquals(filecount - 1, self.count_filenames_on_export())
