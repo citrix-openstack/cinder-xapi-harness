@@ -1,8 +1,8 @@
-xapi_url = 'http://epun.eng.hq.xensource.com'
+xapi_url = 'http://XAPISERVER'
 xapi_user = 'root'
 xapi_pass = 'XAPIPASS'
 
-nfs_server = 'copper.eng.hq.xensource.com'
-nfs_serverpath = '/func-volume-test'
+nfs_server = 'NFSSERVER'
+nfs_serverpath = 'NFSPATH'
 
-exported_catalog = '/func-volume-test'
+exported_catalog = 'LOCALPATHTONFS'
