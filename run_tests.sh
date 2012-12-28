@@ -6,4 +6,4 @@ pip install -r harness-requires
 
 coverage erase
 coverage run .env/bin/nosetests -v -x
-coverage report --show-missing --include=cinder.volume.drivers.xenap*
+coverage report --show-missing --include=*xenapi*
