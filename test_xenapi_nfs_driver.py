@@ -1,4 +1,4 @@
-from cinder.volume.xenapi import lib as xenapi_nfs_driver
+from cinder.volume.drivers.xenapi import lib as xenapi_nfs_driver
 import unittest
 import os
 import params
