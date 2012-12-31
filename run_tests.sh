@@ -5,5 +5,5 @@ pip install -r harness-requires
 ./update_cinder.sh
 
 coverage erase
-coverage run .env/bin/nosetests -v -x
+coverage run .env/bin/nosetests -v -x "$@"
 coverage report --show-missing --include=*xenapi*
