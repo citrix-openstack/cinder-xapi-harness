@@ -210,3 +210,27 @@ class DeleteVolumeTest(XenAPISessionBased):
             params.nfs_server, params.nfs_serverpath, **volume_details)
 
         self.assertEquals(filecount - 1, self.count_filenames_on_export())
+
+
+class CopyVolumeTest(XenAPISessionBased):
+    def setUp(self):
+        super(CopyVolumeTest, self).setUp()
+        self.driver = xenapi_nfs_driver.NFSBasedVolumeOperations(self.sessionFactory)
+
+    def count_filenames_on_export(self):
+        return len(self.filenames_on_export())
+
+    def test_copy_creates_new_file(self):
+        src_vol = self.driver.create_volume(
+            params.nfs_server, params.nfs_serverpath, 1)
+
+        file_count = self.count_filenames_on_export()
+
+        dst_vol = self.driver.copy_volume(
+            params.nfs_server, params.nfs_serverpath, **src_vol)
+
+        new_file_count = self.count_filenames_on_export()
+
+        self.assertTrue(new_file_count == file_count + 1)
+        self.assertTrue(src_vol['sr_uuid'] != dst_vol['sr_uuid'])
+        self.assertTrue(src_vol['vdi_uuid'] != dst_vol['vdi_uuid'])
