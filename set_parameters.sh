@@ -1,5 +1,5 @@
 #!/bin/bash
-set -u
+set -exu
 git checkout -- params.py
 sed -ie "s/XAPIPASS/$XAPIPASS/" params.py
 sed -ie "s/XAPISERVER/$XAPISERVER/" params.py
