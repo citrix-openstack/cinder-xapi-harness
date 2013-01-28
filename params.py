@@ -1,8 +1,8 @@
-xapi_url = 'http://epun.eng.hq.xensource.com'
+xapi_url = 'http://XAPISERVER'
 xapi_user = 'root'
-xapi_pass = 'xenroot'
+xapi_pass = 'XAPIPASS'
 
-nfs_server = 'copper.eng.hq.xensource.com'
-nfs_serverpath = '/mate-test'
+nfs_server = 'NFSSERVER'
+nfs_serverpath = 'NFSPATH'
 
-exported_catalog = '/mnt/mate-test'
+exported_catalog = 'LOCALPATHTONFS'
