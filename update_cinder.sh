@@ -1,6 +1,7 @@
 #!/bin/bash
 [ -e cinder-master ] && (
     cd cinder-master
+    git checkout "${BRANCH-master}"
     git pull
 ) || git clone git://github.com/citrix-openstack/cinder.git cinder-master
 rm -rf cinder
