@@ -238,20 +238,22 @@ class CopyVolumeTest(XenAPISessionBased):
 
 
 class CallPluginTest(XenAPISessionBased):
+    def setUp(self):
+        super(CallPluginTest, self).setUp()
+        self.driver = xenapi_nfs_driver.NFSBasedVolumeOperations(self.sessionFactory)
+
     def test_call_echo_plugin(self):
-        host_ref = self.session.get_this_host()
         args = dict(foo="bar")
 
-        result = self.session.call_plugin(host_ref, 'echo', 'main', args)
+        result = self.driver.call_plugin('echo', 'main', args)
 
         self.assertEquals("args were: %s" % repr(args), result)
 
     def test_bad_plugin_call(self):
-        host_ref = self.session.get_this_host()
         args = dict(foo="bar")
 
         with self.assertRaises(xenapi_nfs_driver.XenAPIException):
-            self.session.call_plugin(host_ref, 'nonexisting', 'xxx', args)
+            self.driver.call_plugin('nonexisting', 'xxx', args)
 
 
 class ResizeTest(XenAPISessionBased):
