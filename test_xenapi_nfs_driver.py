@@ -234,3 +234,13 @@ class CopyVolumeTest(XenAPISessionBased):
         self.assertTrue(new_file_count == file_count + 1)
         self.assertTrue(src_vol['sr_uuid'] != dst_vol['sr_uuid'])
         self.assertTrue(src_vol['vdi_uuid'] != dst_vol['vdi_uuid'])
+
+
+class CallPluginTest(XenAPISessionBased):
+    def test_call_echo_plugin(self):
+        host_ref = self.session.get_this_host()
+        args = dict(foo="bar")
+
+        result = self.session.call_plugin(host_ref, 'echo', 'main', args)
+
+        self.assertEquals("args were: %s" % repr(args), result)
