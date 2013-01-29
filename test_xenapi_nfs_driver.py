@@ -2,6 +2,7 @@ from cinder.volume.drivers.xenapi import lib as xenapi_nfs_driver
 import unittest
 import os
 import params
+import subprocess
 
 
 class TestSessionFactory(unittest.TestCase):
@@ -244,3 +245,39 @@ class CallPluginTest(XenAPISessionBased):
         result = self.session.call_plugin(host_ref, 'echo', 'main', args)
 
         self.assertEquals("args were: %s" % repr(args), result)
+
+    def test_bad_plugin_call(self):
+        host_ref = self.session.get_this_host()
+        args = dict(foo="bar")
+
+        with self.assertRaises(xenapi_nfs_driver.XenAPIException):
+            self.session.call_plugin(host_ref, 'nonexisting', 'xxx', args)
+
+
+class ResizeTest(XenAPISessionBased):
+    def setUp(self):
+        super(ResizeTest, self).setUp()
+        self.driver = xenapi_nfs_driver.NFSBasedVolumeOperations(self.sessionFactory)
+
+    def get_size_of_vhd(self, vol):
+        path_to_vhd = os.path.join(params.exported_catalog, vol['sr_uuid'], vol['vdi_uuid'] + '.vhd')
+        self.assertTrue(os.path.exists(path_to_vhd))
+
+        cmdline = "vhd-util query -n %s -v" % path_to_vhd
+        args = cmdline.split()
+        proc = subprocess.Popen(args, stdout=subprocess.PIPE)
+
+        out, err = proc.communicate()
+
+        return out.strip()
+
+    def test_resize(self):
+        vol = self.driver.create_volume(
+            params.nfs_server, params.nfs_serverpath, 1)
+
+        self.assertEquals('1024', self.get_size_of_vhd(vol))
+
+        self.driver.resize_volume(
+            params.nfs_server, params.nfs_serverpath, **dict(size_in_gigabytes=2, **vol))
+
+        self.assertEquals('2048', self.get_size_of_vhd(vol))
