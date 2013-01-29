@@ -1,8 +1,8 @@
 #!/bin/bash
 set -exu
-git checkout -- params.py
-sed -ie "s/XAPIPASS/$XAPIPASS/" params.py
-sed -ie "s/XAPISERVER/$XAPISERVER/" params.py
-sed -ie "s/NFSSERVER/$NFSSERVER/" params.py
-sed -ie "s,NFSPATH,$NFSPATH," params.py
-sed -ie "s,LOCALPATHTONFS,$LOCALPATHTONFS," params.py
+cat params.py.template |
+sed -e "s/XAPIPASS/$XAPIPASS/" \
+-e "s/XAPISERVER/$XAPISERVER/" \
+-e "s/NFSSERVER/$NFSSERVER/" \
+-e "s,NFSPATH,$NFSPATH," \
+-e "s,LOCALPATHTONFS,$LOCALPATHTONFS," > params.py
