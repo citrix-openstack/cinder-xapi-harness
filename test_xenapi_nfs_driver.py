@@ -47,6 +47,11 @@ class XenAPISessionBased(unittest.TestCase):
         return set(os.listdir(params.exported_catalog))
 
 
+class VDIOperationsTest(XenAPISessionBased):
+    def test_create_vdi(self):
+        pass
+
+
 class XenAPISessionTest(XenAPISessionBased):
     def test_new_sr_on_nfs_connects_an_sr_and_disconnects(self):
         session = self.session
