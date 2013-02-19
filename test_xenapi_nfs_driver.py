@@ -48,8 +48,10 @@ class XenAPISessionBased(unittest.TestCase):
 
 
 class VDIOperationsTest(XenAPISessionBased):
-    def test_create_vdi(self):
-        pass
+    def test_get_default_sr(self):
+        session = self.session
+        sr_ref = session.pool.get_default_SR()
+        self.assertTrue(bool(sr_ref))
 
 
 class XenAPISessionTest(XenAPISessionBased):
