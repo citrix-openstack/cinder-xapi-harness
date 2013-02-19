@@ -56,17 +56,3 @@ coverage report --show-missing --include=*xenapi*
 )
 }
 
-set -eux
-
-if ! [ -z "${XAPIPASS-}" ]
-then
-    set_parameters_from_environment
-    setup_virtualenv ".env"
-fi
-
-BRANCH="${BRANCH-master}"
-REPO="${REPO-git://github.com/citrix-openstack/cinder.git}"
-
-clone_cinder_repo_to "cinder-master"
-extract_xapi_code_from "cinder-master"
-run_tests ".env" "$@"
