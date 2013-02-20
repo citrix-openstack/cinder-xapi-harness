@@ -1,8 +1,40 @@
 from cinder.volume.drivers.xenapi import lib as xenapi_nfs_driver
+from cinder.volume.drivers.xenapi import tools
 import unittest
 import os
 import params
 import subprocess
+import contextlib
+import time
+
+
+@contextlib.contextmanager
+def temporary_vdi(session):
+    pool_ref = session.pool.get_all()[0]
+    sr_ref = session.pool.get_default_SR(pool_ref)
+    vdi_ref = session.VDI.create(sr_ref, 1, 'User')
+    try:
+        yield vdi_ref
+    finally:
+        session.VDI.destroy(vdi_ref)
+
+
+@contextlib.contextmanager
+def temporary_vbd(session):
+    vm_uuid = tools.get_this_vm_uuid()
+    vm_ref = session.VM.get_by_uuid(vm_uuid)
+    with temporary_vdi(session) as vdi_ref:
+        vbd_ref = session.VBD.create(vm_ref, vdi_ref,
+            userdevice='autodetect', bootable=False, mode='RO',
+            type='disk', empty=False, other_config=dict())
+        try:
+            yield vbd_ref
+        finally:
+            try:
+                session.VBD.unplug(vbd_ref)
+            except:
+                pass
+            session.VBD.destroy(vbd_ref)
 
 
 class TestSessionFactory(unittest.TestCase):
@@ -47,12 +79,70 @@ class XenAPISessionBased(unittest.TestCase):
         return set(os.listdir(params.exported_catalog))
 
 
-class VDIOperationsTest(XenAPISessionBased):
+class DiskOperationsTest(XenAPISessionBased):
+    def tearDown(self):
+        self.detach_destroy_extra_disks()
+        super(DiskOperationsTest, self).tearDown()
+
+    def detach_destroy_extra_disks(self):
+        session = self.session
+        vm_uuid = tools.get_this_vm_uuid()
+        vm_ref = session.VM.get_by_uuid(vm_uuid)
+        for vbd_ref in session.VM.get_vbds(vm_ref):
+            if session.VBD.get_device(vbd_ref) == "xvda":
+                continue
+            vdi_ref = session.VBD.get_vdi(vbd_ref)
+            session.VBD.unplug(vbd_ref)
+            session.VBD.destroy(vbd_ref)
+            session.VDI.destroy(vdi_ref)
+
     def test_get_default_sr(self):
         session = self.session
-        pool_ref = session.get_pool()
+        pool_ref = session.pool.get_all()[0]
         sr_ref = session.pool.get_default_SR(pool_ref)
         self.assertTrue(bool(sr_ref))
+
+    def test_create_vdi(self):
+        session = self.session
+        pool_ref = session.pool.get_all()[0]
+        sr_ref = session.pool.get_default_SR(pool_ref)
+        vdi_ref = session.VDI.create(sr_ref, 1, 'User')
+        self.assertTrue(bool(vdi_ref))
+        session.VDI.destroy(vdi_ref)
+
+    def test_get_uuid(self):
+        machine_uuid = tools.get_this_vm_uuid()
+        self.assertTrue(bool(machine_uuid))
+
+    def test_create_vbd(self):
+        session = self.session
+        vm_uuid = tools.get_this_vm_uuid()
+        vm_ref = session.VM.get_by_uuid(vm_uuid)
+        with temporary_vdi(session) as vdi_ref:
+            vbd_ref = session.VBD.create(vm_ref, vdi_ref,
+                userdevice='autodetect', bootable=False, mode='RW',
+                type='disk', empty=False, other_config=dict())
+            session.VBD.destroy(vbd_ref)
+
+    def test_get_device(self):
+        session = self.session
+        with temporary_vbd(session) as vbd_ref:
+            device = session.VBD.get_device(vbd_ref)
+            self.assertFalse(bool(device))
+            session.VBD.plug(vbd_ref)
+            device = session.VBD.get_device(vbd_ref)
+            self.assertEquals('xvdb', device)
+
+    def test_get_vdi(self):
+        session = self.session
+        vm_uuid = tools.get_this_vm_uuid()
+        vm_ref = session.VM.get_by_uuid(vm_uuid)
+        with temporary_vdi(session) as vdi_ref:
+            vbd_ref = session.VBD.create(vm_ref, vdi_ref,
+                userdevice='autodetect', bootable=False, mode='RW',
+                type='disk', empty=False, other_config=dict())
+
+            self.assertEquals(vdi_ref, session.VBD.get_vdi(vbd_ref))
 
 
 class XenAPISessionTest(XenAPISessionBased):
@@ -289,3 +379,25 @@ class ResizeTest(XenAPISessionBased):
             params.nfs_server, params.nfs_serverpath, **dict(size_in_gigabytes=2, **vol))
 
         self.assertEquals('2048', self.get_size_of_vhd(vol))
+
+
+class VolumeAttachedHereTest(XenAPISessionBased):
+    def setUp(self):
+        super(VolumeAttachedHereTest, self).setUp()
+        self.driver = xenapi_nfs_driver.NFSBasedVolumeOperations(self.sessionFactory)
+
+    def test_attach_a_volume_here(self):
+        vol = self.driver.create_volume(
+            params.nfs_server, params.nfs_serverpath, 1)
+        vm_uuid = tools.get_this_vm_uuid()
+        vm_ref = self.session.VM.get_by_uuid(vm_uuid)
+
+        originally_attached_vbds = self.session.VM.get_vbds(vm_ref)
+
+        with self.driver.volume_attached_here(params.nfs_server, params.nfs_serverpath, **vol) as blockdev:
+            self.assertTrue(os.path.exists(blockdev))
+            attached_vbds = self.session.VM.get_vbds(vm_ref)
+            self.assertEquals(len(originally_attached_vbds) + 1, len(attached_vbds))
+
+        attached_vbds_after = self.session.VM.get_vbds(vm_ref)
+        self.assertEquals(originally_attached_vbds, attached_vbds_after)
